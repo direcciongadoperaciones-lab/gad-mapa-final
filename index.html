@@ -72,13 +72,6 @@
         .btn-green { background: #388e3c; } .btn-red { background: #d32f2f; }
         .btn-yellow { background: #fbc02d; color: black; } .btn-blue { background: #1976d2; }
         .btn-close { background: #757575; width: 100%; margin-top: 10px; }
-
-        /* Custom Map Label */
-        .base-label {
-            background: rgba(255,255,255,0.8); border: 1px solid #333; border-radius: 3px;
-            padding: 2px 4px; font-size: 11px; font-weight: bold; white-space: nowrap;
-            pointer-events: none; text-align: center; margin-left: -20px;
-        }
     </style>
 </head>
 <body>
@@ -260,12 +253,10 @@
 
             if (basesData.length === 0) return;
 
-            // Voronoi Turf.js
             const puntosBases = turf.featureCollection(basesData.map(b => turf.point([b.lng, b.lat], b)));
             const bboxPBA = [-63.39, -41.03, -56.66, -33.26];
             const voronoiPolygons = turf.voronoi(puntosBases, {bbox: bboxPBA});
 
-            // Asignar partidos a bases por distancia (dentro del Voronoi)
             const partidosAsignados = {};
             basesData.forEach(b => partidosAsignados[b.name] = []);
 
@@ -280,36 +271,31 @@
                 if(nearestBase) partidosAsignados[nearestBase].push(p.name);
             });
 
-            // Dibujar
             voronoiPolygons.features.forEach((feature, index) => {
                 if (!feature) return;
                 const baseObj = puntosBases.features[index].properties;
                 const colorBorde = obtenerColorEstado(baseObj.estado);
                 const colorRelleno = pastelColors[index % pastelColors.length];
 
-                // Polígono Voronoi
                 const polygon = L.geoJSON(feature, {
-                    style: { color: colorBorde, weight: 3, fillColor: colorRelleno, fillOpacity: 0.4 }
+                    style: { color: colorBorde, weight: 2, fillColor: colorRelleno, fillOpacity: 0.35 }
                 }).addTo(voronoiLayer);
 
-                const listPartidos = partidosAsignados[baseObj.name].join(', ') || 'Ninguno detectado en KML';
-                polygon.on('click', () => {
-                    alert(`JURISDICCIÓN: ${baseObj.name}\n\nPARTIDOS ASIGNADOS:\n${listPartidos}`);
-                });
+                // Muestra la lista de partidos al pasar el mouse sobre la zona
+                const listPartidos = partidosAsignados[baseObj.name].join(', ') || 'Ninguno detectado';
+                polygon.bindTooltip(`<b>JURISDICCIÓN: ${baseObj.name}</b><br><small>Partidos: ${listPartidos}</small>`, {sticky: true});
 
-                // Pin Rojo / Marcador
                 const markerIcon = L.divIcon({
                     className: 'custom-pin',
                     html: `<div style="background-color:${colorBorde}; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 0 5px black;"></div>`,
                     iconSize: [16, 16]
                 });
+                
                 const marker = L.marker([baseObj.lat, baseObj.lng], {icon: markerIcon}).addTo(basesLayer);
+                
+                // Muestra el nombre de la base de forma limpia al pasar el mouse
+                marker.bindTooltip(`<b>${baseObj.name}</b>`, {direction: 'top', offset: [0, -10]});
                 marker.on('click', () => abrirFormulario(baseObj));
-
-                // Label Base Name
-                L.marker([baseObj.lat + 0.05, baseObj.lng], {
-                    icon: L.divIcon({ className: 'base-label', html: baseObj.name, iconSize: [100, 20] })
-                }).addTo(labelLayer);
             });
         }
 
